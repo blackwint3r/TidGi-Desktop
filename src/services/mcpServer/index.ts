@@ -7,16 +7,22 @@ export const DEFAULT_MCP_SERVER_PORT = 38385;
 let server: http.Server | undefined;
 
 export async function startMcpServer(port: number = DEFAULT_MCP_SERVER_PORT, requireToken = false, token = ''): Promise<void> {
-  if (server !== undefined) return;
+  if (server !== undefined) {
+    logger.debug('[MCP] startMcpServer called but server already running, skipping');
+    return;
+  }
   const normalizedToken = token.trim();
   if (requireToken && !normalizedToken) {
     logger.warn('MCP server not started: mcpServerRequireToken is true but mcpServerToken is empty');
     return;
   }
+  logger.info(`[MCP] Creating MCP HTTP server (port=${port}, requireToken=${requireToken})`);
   // Dynamic import to avoid loading @modelcontextprotocol/sdk at module init time
   // (static imports in server.ts → sdkAdapter.ts chain would hang Electron startup on CI)
   const { createMcpHttpServer } = await import('./server');
+  logger.debug('[MCP] createMcpHttpServer imported successfully');
   server = createMcpHttpServer(requireToken ? { requireToken: true, token: normalizedToken } : undefined);
+  logger.debug('[MCP] server created, calling listen...');
   server.listen(port, '127.0.0.1', () => {
     logger.info(`TidGi MCP server listening on http://127.0.0.1:${port}/mcp`);
   });
@@ -85,7 +91,9 @@ export async function restartMcpServerIfNeeded(preferenceService: IPreferenceSer
   startPromise = (async () => {
     try {
       const enabled = await preferenceService.get('mcpServerEnabled');
+      logger.debug(`[MCP] restartMcpServerIfNeeded called, enabled=${enabled}`);
       if (!enabled) {
+        logger.info('[MCP] MCP server disabled by preferences, stopping if running');
         await stopMcpServer();
         return;
       }
@@ -93,7 +101,10 @@ export async function restartMcpServerIfNeeded(preferenceService: IPreferenceSer
       const port = await preferenceService.get('mcpServerPort');
       const requireToken = await preferenceService.get('mcpServerRequireToken');
       const token = await preferenceService.get('mcpServerToken');
+      logger.info(`[MCP] Starting MCP server: port=${port}, requireToken=${requireToken}`);
       await startMcpServer(port, requireToken, token);
+    } catch (error) {
+      logger.error('[MCP] Error in restartMcpServerIfNeeded', { error });
     } finally {
       startPromise = undefined;
     }

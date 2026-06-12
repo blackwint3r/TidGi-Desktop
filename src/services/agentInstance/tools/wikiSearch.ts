@@ -117,11 +117,12 @@ type WikiUpdateEmbeddingsToolParameters = z.infer<typeof WikiUpdateEmbeddingsToo
 /**
  * Execute wiki search
  */
-async function executeWikiSearch(
+export async function executeWikiSearch(
   parameters: WikiSearchToolParameters,
   aiConfig?: AiAPIConfig,
 ): Promise<ToolExecutionResult> {
   const { workspaceName, searchType = 'filter', filter, query, limit = 10, threshold = 0.7 } = parameters;
+  const normalizedLimit = Math.max(0, Math.floor(limit));
 
   try {
     const workspaceService = container.get<IWorkspaceService>(serviceIdentifier.Workspace);
@@ -204,16 +205,20 @@ async function executeWikiSearch(
       }
 
       const tiddlerTitles = await wikiService.wikiOperationInServer(WikiChannel.runFilter, workspaceID, [filter]);
+      const nonSystemTitles = tiddlerTitles.filter(
+        (title): title is string => typeof title === 'string' && !title.startsWith('$:/'),
+      );
+      const limitedTitles = nonSystemTitles.slice(0, normalizedLimit);
 
-      if (tiddlerTitles.length === 0) {
+      if (nonSystemTitles.length === 0) {
         return {
           success: true,
           data: i18n.t('Tool.WikiSearch.Success.NoResults', { filter, workspaceName }),
-          metadata: { ...searchMetadata, filter, resultCount: 0 },
+          metadata: { ...searchMetadata, filter, resultCount: 0, totalMatchedBeforeLimit: 0, limit: normalizedLimit },
         };
       }
 
-      for (const title of tiddlerTitles) {
+      for (const title of limitedTitles) {
         try {
           const tiddlerFields = await wikiService.wikiOperationInServer(WikiChannel.getTiddlersAsJson, workspaceID, [title]);
           results.push({ title, text: tiddlerFields[0]?.text, fields: tiddlerFields[0] });
@@ -222,7 +227,14 @@ async function executeWikiSearch(
         }
       }
 
-      searchMetadata = { ...searchMetadata, filter, resultCount: results.length };
+      searchMetadata = {
+        ...searchMetadata,
+        filter,
+        resultCount: results.length,
+        totalMatchedBeforeLimit: nonSystemTitles.length,
+        limit: normalizedLimit,
+        excludedSystemTiddlers: tiddlerTitles.length - nonSystemTitles.length,
+      };
     }
 
     // Format results
@@ -254,7 +266,7 @@ async function executeWikiSearch(
 /**
  * Execute wiki update embeddings
  */
-async function executeWikiUpdateEmbeddings(
+export async function executeWikiUpdateEmbeddings(
   parameters: WikiUpdateEmbeddingsToolParameters,
   aiConfig?: AiAPIConfig,
 ): Promise<ToolExecutionResult> {

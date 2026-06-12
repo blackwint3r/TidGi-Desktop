@@ -72,9 +72,10 @@ export default defineConfig({
         'zx',
         'esbuild',
 
-        // MCP SDK is dynamically imported and may not be installed
-        '@modelcontextprotocol/sdk',
-        /^@modelcontextprotocol\/sdk\//,
+        // MCP SDK — bundle it. (Keeping it external + dynamic require caused MODULE_NOT_FOUND at runtime
+        // because Node.js cannot resolve sub-paths via the exports map's "/*" glob pattern.)
+        // As a pure JS package, bundling has no native-binary drawbacks.
+        // '@modelcontextprotocol/sdk',
 
         // TypeORM's optional peer dependencies (dynamically read from package.json)
         // Use RegExp to match both package name and sub-paths (e.g., @sap/hana-client/extension/Stream)

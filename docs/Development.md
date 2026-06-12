@@ -170,6 +170,8 @@ Electron forge webpack don't support pure ESM yet
 
 [FileProtocol](./features/FileProtocol.md)
 
+[Knowledge Graph MCP architecture](./internal/KnowledgeGraphMCP.md)
+
 TBD
 
 ## Testing

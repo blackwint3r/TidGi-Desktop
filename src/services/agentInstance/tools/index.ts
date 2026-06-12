@@ -92,6 +92,8 @@ export async function initializePluginSystem(): Promise<void> {
     import('./workspacesList'),
     import('./git'),
     import('./tiddlywikiPlugin'),
+    import('./uiState'),
+    import('./uiAction'),
     import('./modelContextProtocol'),
     // New tools
     import('./summary'),

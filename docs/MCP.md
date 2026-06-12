@@ -1,4 +1,15 @@
-# MCP (Chrome DevTools) quick start
+# MCP quick start
+
+TidGi currently has two MCP-related workflows:
+
+- Chrome DevTools MCP for inspecting the Electron renderer UI.
+- Ghost KB / Knowledge Graph MCP for agent-facing knowledge graph operations.
+
+For the knowledge graph MCP architecture, tool semantics, current read/write storage model, and future cache route, see [internal/KnowledgeGraphMCP.md](./internal/KnowledgeGraphMCP.md).
+
+Current Ghost KB storage model in one sentence: reads build a temporary in-memory graph from TiddlyWiki on demand; writes go through the operation policy and then directly update TiddlyWiki. There is no long-lived in-memory RDF database as source of truth.
+
+## Chrome DevTools MCP
 
 This repo ships a ready-to-use [chrome-devtools-mcp](https://github.com/ChromeDevTools/mcp) config at `.vscode/mcp.json` that points to `http://localhost:9222`.
 

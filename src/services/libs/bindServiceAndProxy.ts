@@ -17,6 +17,7 @@ import { DeepLinkService } from '@services/deepLink';
 import { Git } from '@services/git';
 import { GitServerService } from '@services/gitServer';
 import { MenuService } from '@services/menu';
+
 import { NativeService } from '@services/native';
 import { NotificationService } from '@services/notifications';
 import { Preference } from '@services/preferences';
@@ -31,6 +32,7 @@ import { WikiGitWorkspace } from '@services/wikiGitWorkspace';
 import { Window } from '@services/windows';
 import { Workspace } from '@services/workspaces';
 import { WorkspaceView } from '@services/workspacesView';
+
 
 import { AgentBrowserServiceIPCDescriptor, type IAgentBrowserService } from '@services/agentBrowser/interface';
 import { AgentDefinitionServiceIPCDescriptor, type IAgentDefinitionService } from '@services/agentDefinition/interface';

@@ -16,6 +16,8 @@ import type { IWindowService } from '@services/windows/interface';
 import type { IWorkspace, IWorkspaceService } from '@services/workspaces/interface';
 import { wikiWorkspaceDefaultValues } from '@services/workspaces/interface';
 import type { IWorkspaceViewService } from '@services/workspacesView/interface';
+import type { IMCPServerService } from '../../services/mcpServer/interface';
+import type { IUIBridgeService } from '../../services/uiBridge/interface';
 import { Observable } from 'rxjs';
 import { vi } from 'vitest';
 
@@ -35,6 +37,8 @@ export const serviceInstances: {
   context: Partial<IContextService>;
   preference: Partial<IPreferenceService>;
   externalAPI: Partial<IExternalAPIService>;
+  uiBridge: Partial<IUIBridgeService>;
+  mcpServer: Partial<IMCPServerService>;
 } = {
   workspace: {
     countWorkspaces: vi.fn().mockResolvedValue(5),
@@ -113,6 +117,58 @@ export const serviceInstances: {
     updateDefaultAIConfig: vi.fn(async () => undefined),
     deleteFieldFromDefaultAIConfig: vi.fn(async () => undefined),
   },
+  uiBridge: {
+    getUIState: vi.fn(async () => ({
+      workspaceId: 'test-wiki-1',
+      workspaceName: 'Test Wiki 1',
+      activeWindow: 'main' as const,
+      openedTiddlers: [],
+      preferences: {},
+    })),
+    openTiddler: vi.fn(async () => ({
+      workspaceId: 'test-wiki-1',
+      workspaceName: 'Test Wiki 1',
+      activeWindow: 'main' as const,
+      openedTiddlers: ['Test'],
+      activeTiddler: 'Test',
+      preferences: {},
+    })),
+    closeTiddler: vi.fn(async () => ({
+      workspaceId: 'test-wiki-1',
+      workspaceName: 'Test Wiki 1',
+      activeWindow: 'main' as const,
+      openedTiddlers: [],
+      preferences: {},
+    })),
+    focusTiddler: vi.fn(async () => ({
+      workspaceId: 'test-wiki-1',
+      workspaceName: 'Test Wiki 1',
+      activeWindow: 'main' as const,
+      openedTiddlers: ['Focus'],
+      activeTiddler: 'Focus',
+      preferences: {},
+    })),
+    setLayout: vi.fn(async () => ({
+      workspaceId: 'test-wiki-1',
+      workspaceName: 'Test Wiki 1',
+      activeWindow: 'main' as const,
+      openedTiddlers: [],
+      preferences: {},
+    })),
+    setPreference: vi.fn(async () => ({
+      workspaceId: 'test-wiki-1',
+      workspaceName: 'Test Wiki 1',
+      activeWindow: 'main' as const,
+      openedTiddlers: [],
+      preferences: {},
+    })),
+  },
+  mcpServer: {
+    initialize: vi.fn(async () => undefined),
+    stop: vi.fn(async () => undefined),
+    getServerEndpoint: vi.fn(() => 'http://127.0.0.1:3399/mcp'),
+    isRunning: vi.fn(() => true),
+  },
 };
 
 // Bind the shared mocks into container so real services resolved from container.get()
@@ -132,6 +188,8 @@ container.bind(serviceIdentifier.AgentBrowser).to(AgentBrowserService).inSinglet
 container.bind(serviceIdentifier.Database).to(DatabaseService).inSingletonScope();
 container.bind(serviceIdentifier.AgentInstance).to(AgentInstanceService).inSingletonScope();
 container.bind(serviceIdentifier.WikiEmbedding).to(WikiEmbeddingService).inSingletonScope();
+container.bind(serviceIdentifier.UIBridge).toConstantValue(serviceInstances.uiBridge);
+container.bind(serviceIdentifier.MCPServer).toConstantValue(serviceInstances.mcpServer);
 
 // Shared workspace fixtures used by many tests
 const defaultWorkspaces: IWorkspace[] = [

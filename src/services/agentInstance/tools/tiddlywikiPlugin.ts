@@ -115,7 +115,7 @@ function clearDescribeCache(workspaceID?: string): void {
   }
 }
 
-async function executeTiddlyWikiPlugin(parameters: TiddlyWikiPluginParameters, config: TiddlyWikiPluginParameter): Promise<ToolExecutionResult> {
+export async function executeTiddlyWikiPlugin(parameters: TiddlyWikiPluginParameters, config: TiddlyWikiPluginParameter): Promise<ToolExecutionResult> {
   const wikiService = container.get<IWikiService>(serviceIdentifier.Wiki);
   const workspaceService = container.get<IWorkspaceService>(serviceIdentifier.Workspace);
 

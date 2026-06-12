@@ -40,7 +40,6 @@ function extractToken(request: IncomingMessage): string | undefined {
 
   if (request.url) {
     const urlPath = request.url.split('?')[0];
-    // Only check query params on /mcp endpoint, not /health or root
     if (urlPath === '/mcp' && request.url.includes('?')) {
       try {
         const parsed = new URL(request.url, 'http://127.0.0.1');
@@ -55,9 +54,43 @@ function extractToken(request: IncomingMessage): string | undefined {
 }
 
 export function createMcpHttpServer(authConfig?: McpAuthConfig): http.Server {
-  return http.createServer(async (httpRequest: IncomingMessage, response: ServerResponse) => {
-    response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization');
+  type McpSession = {
+    id: string;
+    server: ReturnType<typeof createMcpServerWithTools>;
+    transport: StreamableHTTPServerTransport;
+  };
+
+  const sessions = new Map<string, McpSession>();
+
+  const createSession = async (): Promise<McpSession> => {
+    const id = crypto.randomUUID();
+    const session: McpSession = {
+      id,
+      server: createMcpServerWithTools(),
+      transport: undefined as unknown as StreamableHTTPServerTransport,
+    };
+
+    session.transport = new StreamableHTTPServerTransport({
+      sessionIdGenerator: () => id,
+      enableJsonResponse: true,
+      onsessioninitialized: (sessionId: string) => {
+        sessions.set(sessionId, session);
+      },
+      onsessionclosed: async (sessionId: string) => {
+        const current = sessions.get(sessionId);
+        sessions.delete(sessionId);
+        await current?.server.close();
+      },
+    });
+
+    await session.server.connect(session.transport);
+    sessions.set(id, session);
+    return session;
+  };
+
+  const httpServer = http.createServer(async (httpRequest: IncomingMessage, response: ServerResponse) => {
+    response.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, Mcp-Session-Id, Mcp-Protocol-Version');
 
     if (httpRequest.method === 'OPTIONS') {
       response.writeHead(204);
@@ -67,13 +100,12 @@ export function createMcpHttpServer(authConfig?: McpAuthConfig): http.Server {
 
     if (httpRequest.url === '/' || httpRequest.url === '/health') {
       response.writeHead(200, { 'Content-Type': 'application/json' });
-      response.end(JSON.stringify({ name: 'tidgi-mcp', status: 'ok', tools: TOOLS.map(t => t.name) }));
+      response.end(JSON.stringify({ name: 'ghost-kb-mcp', status: 'ok', tools: TOOLS.map(t => t.name) }));
       return;
     }
 
-    // /mcp POST — handle both /mcp and /mcp?token=…
     const urlPath = httpRequest.url?.split('?')[0];
-    if (urlPath === '/mcp' && httpRequest.method === 'POST') {
+    if (urlPath === '/mcp') {
       if (authConfig?.requireToken) {
         const providedToken = extractToken(httpRequest);
         if (!providedToken || !isValidToken(authConfig.token)(providedToken)) {
@@ -83,18 +115,19 @@ export function createMcpHttpServer(authConfig?: McpAuthConfig): http.Server {
         }
       }
 
-      const mcpServer = createMcpServerWithTools();
-      const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: undefined,
-        enableJsonResponse: true,
-      });
-      response.on('close', () => {
-        void transport.close();
-        void mcpServer.close();
-      });
       try {
-        await mcpServer.connect(transport);
-        await transport.handleRequest(httpRequest, response);
+        const sessionId = httpRequest.headers['mcp-session-id'];
+        const normalizedSessionId = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+        const session = normalizedSessionId ? sessions.get(normalizedSessionId) : await createSession();
+
+        if (!session) {
+          response.writeHead(404, { 'Content-Type': 'application/json' });
+          response.end(JSON.stringify({ error: 'Session not found' }));
+          return;
+        }
+
+        response.setHeader('Mcp-Session-Id', session.id);
+        await session.transport.handleRequest(httpRequest, response);
       } catch (error) {
         logger.error('MCP transport error', { error });
         if (!response.headersSent) {
@@ -109,4 +142,14 @@ export function createMcpHttpServer(authConfig?: McpAuthConfig): http.Server {
     response.writeHead(404);
     response.end('Not found');
   });
+
+  httpServer.on('close', () => {
+    for (const [sessionId, session] of sessions) {
+      sessions.delete(sessionId);
+      void session.transport.close();
+      void session.server.close();
+    }
+  });
+
+  return httpServer;
 }
